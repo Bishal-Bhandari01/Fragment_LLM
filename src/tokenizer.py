@@ -1,7 +1,5 @@
 """
-Secure BPE Tokenizer
-Security: Input validation, resource limits, safe serialization
-Adheres to: CWE-20, CWE-502, CWE-400
+BPE Tokenizer with input validation
 """
 import json
 from collections import defaultdict
@@ -14,20 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class SimpleTokenizer:
-    """
-    Byte Pair Encoding tokenizer with security hardening.
-    - Uses JSON instead of pickle (CWE-502 mitigation)
-    - Input validation and sanitization
-    - Resource exhaustion prevention
-    """
+    """Byte Pair Encoding tokenizer with validation."""
     
     def __init__(self, max_vocab_size: int = 50000):
-        """
-        Initialize tokenizer with security constraints.
-        
-        Args:
-            max_vocab_size: Maximum vocabulary size (resource limit)
-        """
+        """Initialize tokenizer."""
         if max_vocab_size < 256 or max_vocab_size > 100000:
             raise ValueError(f"max_vocab_size must be in [256, 100000]")
         
@@ -124,7 +112,7 @@ class SimpleTokenizer:
                 logger.info(f"Vocabulary size: {len(self.vocab)}")
         
         self._is_trained = True
-        logger.info(f"Training complete. Final vocab size: {len(self.vocab)}")
+        logger.info(f"Training complete. Vocab size: {len(self.vocab)}")
         return self
     
     def encode(self, text: str, max_length: Optional[int] = None) -> List[int]:

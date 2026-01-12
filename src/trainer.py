@@ -12,20 +12,20 @@ class Trainer:
         self.config = config
         self.device = device
 
-        # Optimizer
+        # setup optimizer
         self.optimizer = AdamW(
             model.parameters(),
             lr = config.learning_rate,
             weight_decay = config.weight_decay
         )
 
-        # Learning rate scheduler
+        # cosine annealing scheduler
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             self.optimizer,
             T_max = config.max_iters
         )
 
-        # fradiwnt scaler for mixed precision
+        # fradiwnt scaler for mixed precision  # TODO: fix typo
         self.scaler = torch.cuda.amp.GradScaler()
 
     def train_epoch(self):
@@ -36,26 +36,26 @@ class Trainer:
         for batch_idx, (x,y) in enumerate(pbar):
             x, y = x.to(self.device), y.to(self.device)
 
-            # Forward pass with mixed precision
+            # forward with mixed precision
             with torch.cuda.amp.autocast():
                 logits, loss = self.model(x, y)
             
-            # Backward pass
+            # backward
             self.optimizer.zero_grad()
             self.scaler.scale(loss).backward()
 
-            # Gradient clipping
+            # clip gradients
             self.scaler.unscale_(self.optimizer)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_norm_clip)
 
-            # Optimizer step
+            # update weights
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
             total_loss += loss.item()
             pbar.set_postfix({'loss': loss.item()})
 
-            # log to wandb
+            # wandb logging if enabled
             if wandb.run is not None:
                 wandb.log({
                     'train_loss': loss.item(),
@@ -85,18 +85,18 @@ class Trainer:
         for epoch in range(epochs):
             print(f'\nEpoch {epoch+1}/{epochs}')
 
-            # Train
+            # train one epoch
             train_loss = self.train_epoch()
             print(f"Train loss: {train_loss:.4f}")
 
-            # Validate
+            # validate
             val_loss = self.validate()
-            print(f"Validation loss: {val_loss:.4f}")
+            print(f"Val loss: {val_loss:.4f}")
 
-            # Step scheduler
+            # update lr
             self.scheduler.step()
 
-            # Save Checkpoint
+            # checkpoint every 5 epochs
             if (epoch + 1) % 5 == 0:
                 self.save_checkpoint(f"checkpoint_epoch_{epoch+1}.pt")
     

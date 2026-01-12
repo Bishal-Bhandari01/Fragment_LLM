@@ -3,47 +3,43 @@ from dataclasses import dataclass
 @dataclass
 class LLMConfig:
     """
-    Security-hardened Configuration with validation.
-    All parameters are validated to prevent resource exhaustion(CWE-400).
+    Model configuration with validation.
     """
     # Model architecture
-    vocab_size: int  = 5000 # vocab_size
-    block_size: int = 256 # Context  length
-    n_layer: int = 4 # Number of transformer blocks
-    n_head: int = 4 # Number of attention heads
-    n_embd: int = 256 # Embedding dimension
+    vocab_size: int  = 5000
+    block_size: int = 256  # context length
+    n_layer: int = 4
+    n_head: int = 4
+    n_embd: int = 256
 
     # Regularization
-    dropout: float = 0.1 # Droupout rate
-    bias: bool = True # Use bias in Linear layers?
+    dropout: float = 0.1
+    bias: bool = True  # use bias in linear layers?
 
-    #Training
+    # Training
     batch_size: int = 16
-    gradient_accumulation_steps: int = 4 # Effective batch_size = 64
+    gradient_accumulation_steps: int = 4  # effective batch = 64
     learning_rate: float = 3e-4
     max_iters: int = 10000
     weight_decay: float = 1e-1
     grad_norm_clip: float = 1.0
 
-    # Mixed precision training
+    # Mixed precision
     use_amp: bool = True
 
-    # Security limits (CWE-400): Resource exhaustion Prevention)
+    # Security limits to prevent resource exhaustion
     max_file_size_mb: int = 500
     max_sequence_length: int = 2048
     allowed_file_extension: tuple = ('.txt', '.parquet')
 
-    # Safety constraints for generation
+    # Generation safety
     max_generation_tokens: int = 512
     temperature_min: float = 0.1
     temperature_max: float = 2.0
 
     def __post_init__(self):
-        """
-        Validate all configuration parameters.
-        Implements CWE-20: Improper Input Validation prevention.
-        """
-        # Archicture validation
+        """Validate configuration parameters."""
+        # Architecture validation
         if self.vocab_size < 256 or self.vocab_size > 100000:
             raise ValueError(f"vocab_size must be in [256, 100000], got {self.vocab_size}")
         
@@ -62,26 +58,25 @@ class LLMConfig:
         if self.n_embd < 64 or self.n_embd > 2048:
             raise ValueError(f"n_embd must be in [64, 2048], got {self.n_embd}")
         
-        # Regularization validation
         if not 0.0 <= self.dropout <= 0.9:
             raise ValueError(f"dropout must be in [0.0, 0.9], got {self.dropout}")
         
-        # Training Validation
+        # Training validation
         if self.batch_size < 1 or self.batch_size > 256:
             raise ValueError(f"batch_size must be in [1, 256], got {self.batch_size}")
         
         if self.learning_rate <= 0 or self.learning_rate > 1e-2:
-            raise ValueError(f"learining_Rate must be in (0, 1e-2), got {self.learning_rate}")
+            raise ValueError(f"learning_rate must be in (0, 1e-2), got {self.learning_rate}")
         
         if self.weight_decay < 0 or self.weight_decay > 1:
             raise ValueError(f"weight_decay must be in [0, 1], got {self.weight_decay}")
         
         if self.grad_norm_clip <= 0 or self.grad_norm_clip > 10:
-            raise ValueError(f"grad_norm_clip must be in (0, 10), got {self.grad_norm_clip}")
+            raise ValueError(f"grad_norm_clip must be in (0, 10], got {self.grad_norm_clip}")
         
-        # Generate-safety validation
+        # Generation safety validation
         if self.max_generation_tokens < 1 or self.max_generation_tokens > 2048:
-            raise ValueError(f"max_generation_tokens must be in (1, 2048), got {self.max_generation_tokens}")
+            raise ValueError(f"max_generation_tokens must be in [1, 2048], got {self.max_generation_tokens}")
         
         if not self.temperature_min < self.temperature_max:
             raise ValueError("temperature_min must be less than temperature_max")
@@ -89,52 +84,47 @@ class LLMConfig:
 @dataclass
 class SecurityConfig:
     """
-    Security rules and constraints.
-    Implementation defense-in-depth security model.
+    Security rules and constraints for the system.
     """
-    # File System security (CWE-22: Path-Traversal, Prevention)
+    # File system security - prevent path traversal
     allow_absolute_path: bool = False
     allowed_base_dirs: bool = ('data/', 'models/', 'checkpoints/')
 
     # Input sanitization
-    max_input_length: int = 10_000_000 # 10MB text
+    max_input_length: int = 10_000_000  # 10MB text
     sanitization_inputs: bool = True
 
-    # Rate Limiting (DDoS prevention)
+    # Rate limiting
     max_requests_per_minute:int = 60
 
     # Model safety
     enable_content_filter: bool = True
     block_harmful_generation: bool = True
     
-    # Logging and monitoring
+    # Logging
     enable_audit_logging: bool = True
     log_level: str  ="INFO"
 
     def validate_file_path(self, file_path: str) -> bool:
-        """
-        Validate file path to prevent directory traversal attacks.
-        Implements CWE-22 mitigation.
-        """
+        """Validate file path to prevent directory traversal attacks."""
         import os
         from pathlib import Path
 
         try:
-            # Convert to Path object
             path = Path(file_path).resolve()
 
-            # Check if absolute paths are allowed
+            # check if absolute paths are allowed
             if path.is_absolute() and not self.allow_absolute_path:
                 return False
             
-            # Check for path traversal attempts
+            # check for path traversal
             if ".." in str(path):
                 return False
             
-            # Verify path is within allowed directories
+            # verify path is within allowed directories
             path_str = str(path)
             if not any(path_str.startswith(base) for base in self.allowed_base_dirs):
-                # IF not in allowed dirs, check if it's a relative safe path
+                # if not in allowed dirs, check if it's a relative safe path
                 if path.is_absolute():
                     return False
             

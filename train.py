@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Secure Training Script - Main Entry Point
+Training script for the LLM model
 """
 import torch
 from pathlib import Path
@@ -8,7 +8,7 @@ import logging
 import argparse
 import sys
 
-# Add src to path
+# add src to path so imports work
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from src.config import LLMConfig
@@ -29,20 +29,17 @@ logger = logging.getLogger(__name__)
 
 
 def main(args):
-    logger.info("="*60)
-    logger.info("SECURE LLM TRAINING PIPELINE")
-    logger.info("="*60)
+    logger.info("Starting training pipeline...")
     
-    # Setup directories
+    # make sure directories exist
     Path('data/processed').mkdir(exist_ok=True, parents=True)
     Path('models').mkdir(exist_ok=True, parents=True)
     Path('checkpoints').mkdir(exist_ok=True, parents=True)
     
-    # Device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    logger.info(f"Using device: {device}")
+    logger.info(f"Device: {device}")
     
-    # Config
+    # setup config
     config = LLMConfig(
         vocab_size=args.vocab_size,
         block_size=args.block_size,
@@ -57,13 +54,13 @@ def main(args):
         use_amp=args.use_amp and device == 'cuda'
     )
     
-    # Tokenizer
+    # load or train tokenizer
     tokenizer_path = Path('tokenizer.json')
     if tokenizer_path.exists() and not args.retrain_tokenizer:
-        logger.info("Loading tokenizer...")
+        logger.info("Loading existing tokenizer")
         tokenizer = SimpleTokenizer.load(str(tokenizer_path))
     else:
-        logger.info("Training tokenizer...")
+        logger.info("Training new tokenizer...")
         with open('data/processed/train_tiny.txt', 'r') as f:
             text = f.read()
         tokenizer = SimpleTokenizer(max_vocab_size=args.vocab_size)
@@ -71,10 +68,10 @@ def main(args):
         tokenizer.save(str(tokenizer_path))
     
     config.vocab_size = len(tokenizer.vocab)
-    logger.info(f"Vocabulary size: {config.vocab_size}")
+    logger.info(f"Vocab size: {config.vocab_size}")
     
-    # Data loaders
-    logger.info("Creating data loaders...")
+    # create dataloaders
+    logger.info("Setting up data loaders...")
     train_loader = create_dataloader(
         'data/processed/train_tiny.txt',
         tokenizer,
@@ -91,17 +88,15 @@ def main(args):
         allowed_base_dirs=('data/',)
     )
     
-    logger.info(f"Train batches: {len(train_loader)}")
-    logger.info(f"Val batches: {len(val_loader)}")
+    logger.info(f"Train: {len(train_loader)} batches, Val: {len(val_loader)} batches")
     
-    # Model
+    # init model
     logger.info("Initializing model...")
     model = AIModel(config)
     n_params = sum(p.numel() for p in model.parameters())
-    logger.info(f"Model parameters: {n_params:,}")
+    logger.info(f"Model has {n_params:,} parameters")
     
-    # Trainer
-    logger.info("Initializing trainer...")
+    # setup trainer
     trainer = Trainer(
         model=model,
         train_dataloader=train_loader,
@@ -110,13 +105,13 @@ def main(args):
         device=device
     )
     
-    # Train
-    logger.info("\nStarting training...")
+    # let's train!
+    logger.info("Starting training...")
     trainer.train(epochs=args.epochs)
     
-    # Save final model
+    # save final model
     torch.save(model.state_dict(), 'models/final_model.pt')
-    logger.info("Training complete!")
+    logger.info("Done!")
 
 
 if __name__ == "__main__":

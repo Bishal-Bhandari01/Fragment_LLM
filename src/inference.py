@@ -1,6 +1,5 @@
 """
-Secure Inference Script
-Safe text generation with validataion and content filtering.
+Inference script for text generation
 """
 
 import torch
@@ -21,10 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class SecureInferenceEngine:
-    """
-    Secure inference engine with content validation.
-    Implements safety constraints for text generation.
-    """
+    """Inference engine for text generation with safety checks."""
     
     def __init__(
             self,
@@ -33,40 +29,24 @@ class SecureInferenceEngine:
             device: str = 'cuda',
             max_length: int = 512
     ):
-        """
-        Initialize inference engine.
-        
-        Args:
-            model: Trained model
-            tokenizer: trained tokenizer
-            device: Device to run on
-            max_length: Maximum generation length
-        """
+        """Initialize inference engine."""
         self.device = torch.device(device)
         self.model = model.to(self.device)
         self.model.eval()
         self.tokenizer = tokenizer
         self.max_length = max_length
 
-        logger.info(f"Inference engine initialized on {self.device}")
+        logger.info(f"Inference engine ready on {self.device}")
 
     def _validate_prompt(self, prompt:str) -> str:
-        """
-        Validate and sanitize input prompt.
-
-        Args:
-            prompt: User Input prompt
-
-        Return:
-            Sanitized prompt
-        """
+        """Validate and clean input prompt."""
         if not isinstance(prompt, str):
             raise TypeError(f"Prompt must be a string.")
         
-        # Remove null bytes
+        # remove null bytes
         prompt = prompt.replace('\x00', '')
 
-        # Length validation
+        # check length
         if len(prompt) > 10000:
             logger.warning("Prompt too long, truncating")
             prompt = prompt[:10000]

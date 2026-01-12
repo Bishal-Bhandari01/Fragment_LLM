@@ -1,6 +1,5 @@
 """
-Secure Text Dataset with validation and safety checks
-Adheres to: CWE-22, CWE-400, CWE-20
+Text dataset for training with path validation
 """
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -12,12 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class TextDataset(Dataset):
-    """
-    Text dataset with security hardening:
-    - Path validation (CWE-22 prevention)
-    - Memory efficiency for low-end PCs
-    - Input validation
-    """
+    """Text dataset with security checks."""
     
     def __init__(
         self, 
@@ -27,36 +21,27 @@ class TextDataset(Dataset):
         max_file_size_mb: int = 500,
         allowed_base_dirs: tuple = ('data/',)
     ):
-        """
-        Initialize dataset with security checks.
-        
-        Args:
-            text_file: Path to text file (validated)
-            tokenizer: Trained tokenizer
-            block_size: Sequence length
-            max_file_size_mb: Maximum file size (DoS prevention)
-            allowed_base_dirs: Allowed directory prefixes
-        """
-        # Path validation (CWE-22: Path Traversal Prevention)
+        """Initialize dataset with validation."""
+        # validate path
         self.text_file = self._validate_path(text_file, allowed_base_dirs)
         
-        logger.info(f"Text file Validation: {self.text_file}")
+        logger.info(f"Validated: {self.text_file}")
         
-        # File size validation (CWE-400: Resource Exhaustion Prevention)
+        # check file size
         file_size_mb = self.text_file.stat().st_size / (1024 * 1024)
         if file_size_mb > max_file_size_mb:
             raise ValueError(
                 f"File size ({file_size_mb:.1f}MB) exceeds limit ({max_file_size_mb}MB)"
             )
         
-        # Block size validation
+        # validate block size
         if not 1 <= block_size <= 2048:
             raise ValueError(f"block_size must be in [1, 2048], got {block_size}")
         
         self.block_size = block_size
         self.tokenizer = tokenizer
         
-        # Load and tokenize with memory efficiency
+        # load and tokenize
         logger.info(f"Loading dataset from {self.text_file}")
         try:
             with open(self.text_file, 'r', encoding='utf-8') as f:
@@ -64,14 +49,14 @@ class TextDataset(Dataset):
         except Exception as e:
             raise IOError(f"Failed to read file: {e}")
         
-        # Validate text content
+        # validate content
         if not text:
             raise ValueError("Dataset file is empty")
         
-        logger.info("Tokenizing dataset...")
+        logger.info("Tokenizing...")
         self.tokens = tokenizer.encode(text)
         
-        logger.info(f"Encoding completed for: {self.tokens}")
+        logger.info(f"Tokens: {len(self.tokens)}")
         
         if len(self.tokens) < block_size + 1:
             raise ValueError(
@@ -82,37 +67,24 @@ class TextDataset(Dataset):
     
     @staticmethod
     def _validate_path(filepath: str, allowed_base_dirs: tuple) -> Path:
-        """
-        Validate file path to prevent directory traversal.
-        Implements CWE-22 mitigation.
-        
-        Args:
-            filepath: Path to validate
-            allowed_base_dirs: Allowed directory prefixes
-        
-        Returns:
-            Validated Path object
-        
-        Raises:
-            ValueError: If path is invalid or unsafe
-        """
+        """Validate file path to prevent directory traversal."""
         try:
             path = Path(filepath).resolve()
         except Exception as e:
             raise ValueError(f"Invalid file path: {e}")
         
-        # Check if file exists
+        # check file exists
         if not path.exists():
             raise FileNotFoundError(f"File not found: {filepath}")
         
         if not path.is_file():
             raise ValueError(f"Path is not a file: {filepath}")
         
-        # Check for path traversal attempts
+        # check for path traversal
         if '..' in str(filepath):
             raise ValueError("Path traversal detected")
         
-        # Verify path is within allowed directories
+        # verify path is in allowed directories
         path_str = str(path)
         if allowed_base_dirs:
             is_allowed = any(
@@ -120,8 +92,7 @@ class TextDataset(Dataset):
                 for base in allowed_base_dirs
             )
             if not is_allowed and not path.is_absolute():
-                # Allow relative paths in current directory
-                pass
+                pass  # allow relative paths in current dir
             elif not is_allowed:
                 raise ValueError(
                     f"Path not in allowed directories: {allowed_base_dirs}"
@@ -134,16 +105,8 @@ class TextDataset(Dataset):
         return max(0, len(self.tokens) - self.block_size)
     
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Get a training sample with validation.
-        
-        Args:
-            idx: Sample index
-        
-        Returns:
-            Tuple of (input_tokens, target_tokens)
-        """
-        # Index validation
+        """Get a training sample."""
+        # validate index
         if idx < 0 or idx >= len(self):
             raise IndexError(f"Index {idx} out of range [0, {len(self)})")
         

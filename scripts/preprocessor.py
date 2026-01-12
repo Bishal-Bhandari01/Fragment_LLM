@@ -1,10 +1,5 @@
 """
-Secure Data Preprocessor for WikiText dataset
-Security features:
-- Path validation
-- File size limits
-- Input sanitization
-- Error handling
+Data preprocessor for WikiText dataset
 """
 import pandas as pd
 from pathlib import Path
@@ -19,9 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class Preprocessor:
-    """
-    Data Preprocessing with validation and safety checks.
-    """
+    """Data preprocessing with validation."""
     def __init__(
         self,
         raw_dir:str = "data/raw",
@@ -29,23 +22,15 @@ class Preprocessor:
         max_file_size_mb: int = 500,
         allowed_extensions: Tuple[str, ...] = ('.parquet', '.txt')
     ):
-        """
-        Initialize preprocessor with security constraints.
-        
-        Args:
-            raw_dir: Directory containing raw data
-            processed_dir: Directory for processed output
-            max_file_size_mb: Maximum file size limit
-            allowed_extensions: Allowed file extensions
-        """
+        """Initialize preprocessor."""
         self.raw_dir = self._validate_directory(raw_dir, create=False)
         self.processed_dir = self._validate_directory(processed_dir, create=True)  
         self.max_file_size_mb = max_file_size_mb
         self.allowed_extensions = allowed_extensions
         
         logger.info(f"Preprocessor initialized")
-        logger.info(f"Raw directory: {self.raw_dir}")
-        logger.info(f"Processed directory: {self.processed_dir}")
+        logger.info(f"Raw: {self.raw_dir}")
+        logger.info(f"Processed: {self.processed_dir}")
         
     @staticmethod
     def _validate_directory(
