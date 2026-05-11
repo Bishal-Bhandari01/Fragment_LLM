@@ -1,324 +1,74 @@
-# Model Architecture
+# Inside the AI's Brain 🧠
 
-Detailed documentation of the Fragment_LLM transformer architecture.
+Ever wonder what an AI model actually *looks* like under the hood? It's not magic, it's just math! This page breaks down the "Transformer" architecture that powers Fragment LLM in plain English. 
 
-## Overview
-
-Fragment_LLM implements a GPT-style decoder-only transformer optimized for efficiency and security. The architecture follows the standard transformer design with several optimizations for low-end hardware.
-
-## Architecture Diagram
-
-```
-Input Text
-    ↓
-[Tokenizer] → Token IDs
-    ↓
-[Token Embedding] (vocab_size × n_embd)
-    ↓
-[Position Embedding] (block_size × n_embd)
-    ↓
-[Dropout]
-    ↓
-┌─────────────────────────────┐
-│  Transformer Block 1        │
-│  ├─ Layer Norm              │
-│  ├─ Multi-Head Attention    │
-│  ├─ Residual Connection     │
-│  ├─ Layer Norm              │
-│  ├─ Feed-Forward Network    │
-│  └─ Residual Connection     │
-└─────────────────────────────┘
-    ↓
-    ... (repeat n_layer times)
-    ↓
-[Final Layer Norm]
-    ↓
-[Language Model Head] (n_embd → vocab_size)
-    ↓
-Output Logits
-```
-
-## Components
-
-### 1. Token Embedding
-
-**Location**: `src/model.py` - `AIModel.__init__`
-
-```python
-self.wte = nn.Embedding(config.vocab_size, config.n_embd)
-```
-
-**Purpose**: Converts token IDs to dense vector representations
-
-**Parameters**:
-- Input: Token IDs (batch_size, sequence_length)
-- Output: Embeddings (batch_size, sequence_length, n_embd)
-
-**Default Config**:
-- vocab_size: 5,000
-- n_embd: 384
-
-### 2. Position Embedding
-
-**Location**: `src/model.py` - `AIModel.__init__`
-
-```python
-self.wpe = nn.Embedding(config.block_size, config.n_embd)
-```
-
-**Purpose**: Adds positional information to token embeddings
-
-**Parameters**:
-- Input: Position indices (1, sequence_length)
-- Output: Position embeddings (1, sequence_length, n_embd)
-
-**Default Config**:
-- block_size: 512
-- n_embd: 384
-
-### 3. Multi-Head Self-Attention
-
-**Location**: `src/model.py` - `CausalSelfAttention`
-
-```python
-class CausalSelfAttention(nn.Module):
-    def __init__(self, embed_size, num_heads, block_size, dropout, bias):
-        # Combined QKV projection for efficiency
-        self.c_attn = nn.Linear(embed_size, 3 * embed_size, bias=bias)
-        self.c_proj = nn.Linear(embed_size, embed_size, bias=bias)
-```
-
-**Key Features**:
-- **Causal masking**: Prevents attending to future tokens
-- **Combined QKV projection**: More efficient than separate Q, K, V
-- **Scaled dot-product attention**: Standard attention mechanism
-
-**Attention Formula**:
-```
-Attention(Q, K, V) = softmax(QK^T / √d_k) V
-```
-
-**Parameters**:
-- num_heads: 6 (default)
-- head_dim: n_embd / num_heads = 64
-- dropout: 0.1
-
-**Memory Optimization**:
-- Uses single linear layer for Q, K, V instead of three separate layers
-- Reduces parameter count by ~33%
-
-### 4. Feed-Forward Network (MLP)
-
-**Location**: `src/model.py` - `MLP`
-
-```python
-class MLP(nn.Module):
-    def __init__(self, config):
-        self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd)
-        self.gelu = nn.GELU()
-        self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
-        self.dropout = nn.Dropout(config.dropout)
-```
-
-**Architecture**:
-```
-Input (n_embd)
-    ↓
-Linear (n_embd → 4*n_embd)
-    ↓
-GELU Activation
-    ↓
-Linear (4*n_embd → n_embd)
-    ↓
-Dropout
-    ↓
-Output (n_embd)
-```
-
-**Expansion Factor**: 4x (standard for transformers)
-
-### 5. Transformer Block
-
-**Location**: `src/model.py` - `TransformerBlock`
-
-```python
-class TransformerBlock(nn.Module):
-    def forward(self, x):
-        # Pre-norm architecture
-        x = x + self.attn(self.ln_1(x))  # Attention + residual
-        x = x + self.mlp(self.ln_2(x))   # MLP + residual
-        return x
-```
-
-**Design Choice**: Pre-normalization (LayerNorm before attention/MLP)
-- More stable training
-- Better gradient flow
-- Standard in modern transformers
-
-### 6. Language Model Head
-
-**Location**: `src/model.py` - `AIModel.__init__`
-
-```python
-self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
-self.wte.weight = self.lm_head.weight  # Weight tying
-```
-
-**Weight Tying**: Shares weights with token embedding
-- Reduces parameters
-- Improves performance
-- Standard practice in language models
-
-## Model Configurations
-
-### Tiny (Low-End PCs)
-```python
-config = LLMConfig(
-    vocab_size=5000,
-    block_size=256,
-    n_layer=4,
-    n_head=4,
-    n_embd=256,
-    dropout=0.1
-)
-```
-- **Parameters**: ~15M
-- **Memory**: 2GB GPU / 1GB CPU
-- **Use case**: Testing, low-resource environments
-
-### Small (Default)
-```python
-config = LLMConfig(
-    vocab_size=5000,
-    block_size=512,
-    n_layer=6,
-    n_head=6,
-    n_embd=384,
-    dropout=0.1
-)
-```
-- **Parameters**: ~38M
-- **Memory**: 4GB GPU / 2GB CPU
-- **Use case**: General purpose, balanced performance
-
-### Medium (High-End PCs)
-```python
-config = LLMConfig(
-    vocab_size=10000,
-    block_size=1024,
-    n_layer=12,
-    n_head=12,
-    n_embd=768,
-    dropout=0.1
-)
-```
-- **Parameters**: ~124M
-- **Memory**: 8GB GPU / 4GB CPU
-- **Use case**: Best quality, research
-
-## Parameter Count Breakdown
-
-For default config (Small):
-
-| Component | Parameters | Percentage |
-|-----------|-----------|------------|
-| Token Embedding | 1,920,000 | 5.1% |
-| Position Embedding | 196,608 | 0.5% |
-| Attention Layers | 17,694,720 | 46.6% |
-| MLP Layers | 17,694,720 | 46.6% |
-| Layer Norms | 4,608 | 0.01% |
-| LM Head | 0 (tied) | 0% |
-| **Total** | **~38M** | **100%** |
-
-## Memory Requirements
-
-### Training (FP16 with gradient accumulation)
-
-| Config | Model | Optimizer | Gradients | Activations | Total |
-|--------|-------|-----------|-----------|-------------|-------|
-| Tiny | 30MB | 60MB | 30MB | 100MB | ~220MB |
-| Small | 76MB | 152MB | 76MB | 300MB | ~600MB |
-| Medium | 248MB | 496MB | 248MB | 1GB | ~2GB |
-
-### Inference (FP16)
-
-| Config | Model | KV Cache | Total |
-|--------|-------|----------|-------|
-| Tiny | 30MB | 50MB | ~80MB |
-| Small | 76MB | 150MB | ~230MB |
-| Medium | 248MB | 500MB | ~750MB |
-
-## Optimizations
-
-### 1. Combined QKV Projection
-Instead of three separate linear layers for Q, K, V:
-```python
-# Efficient (current)
-self.c_attn = nn.Linear(n_embd, 3 * n_embd)
-qkv = self.c_attn(x)
-q, k, v = qkv.split(n_embd, dim=2)
-
-# vs. Naive
-self.q_proj = nn.Linear(n_embd, n_embd)
-self.k_proj = nn.Linear(n_embd, n_embd)
-self.v_proj = nn.Linear(n_embd, n_embd)
-```
-
-### 2. Weight Tying
-Shares weights between token embedding and output projection:
-- Saves ~2M parameters (for vocab_size=5000)
-- Improves generalization
-
-### 3. Pre-Normalization
-LayerNorm before attention/MLP instead of after:
-- Better gradient flow
-- More stable training
-- Allows deeper models
-
-### 4. Gradient Checkpointing (Optional)
-Can be enabled for very large models:
-```python
-# Not currently implemented, but can be added
-torch.utils.checkpoint.checkpoint(block, x)
-```
-
-## Forward Pass
-
-```python
-def forward(self, idx, targets=None):
-    B, T = idx.size()
-    
-    # Get embeddings
-    tok_emb = self.wte(idx)  # (B, T, n_embd)
-    pos_emb = self.wpe(positions)  # (1, T, n_embd)
-    x = self.drop(tok_emb + pos_emb)
-    
-    # Apply transformer blocks
-    for block in self.blocks:
-        x = block(x)  # (B, T, n_embd)
-    
-    # Final layer norm and projection
-    x = self.ln_f(x)
-    logits = self.lm_head(x)  # (B, T, vocab_size)
-    
-    # Compute loss if targets provided
-    if targets is not None:
-        loss = F.cross_entropy(logits.view(-1, vocab_size), 
-                               targets.view(-1))
-    
-    return logits, loss
-```
-
-## Generation Process
-
-See [Inference Guide](inference.md) for detailed generation documentation.
-
-## Related Documentation
-
-- [Training Guide](training.md) - How to train the model
-- [Configuration](configuration.md) - Model configuration options
-- [Architecture Overview](architecture.md) - System design
+We built this model to be modern, incredibly fast, and capable of scaling from a tiny brain you can run on a laptop to a massive 7B-parameter giant.
 
 ---
 
-**Next**: Learn about [training the model](training.md)
+## How Does It Think? (The Big Picture)
+
+Imagine the AI is trying to read a sentence and guess the next word. It goes through a series of steps:
+
+```
+1. Reads Your Text
+        ↓
+2. Looks Up the Words (Token Embedding)
+   Translates your English words into numbers it understands.
+        ↓
+3. The "Thought Process" (Transformer Blocks)
+   It passes the numbers through several layers of math. 
+   At each layer, it asks: "What do these words mean in context?"
+   "Which words are related to each other?"
+        ↓
+4. The Final Guess (Language Model Head)
+   After thinking about it, it picks the single most likely 
+   word to come next!
+```
+
+---
+
+## The Core Ingredients
+
+If you look in our `src/model.py` file, you'll see the exact Python code that makes up the brain. Here is what each piece actually does:
+
+### 1. Token Embedding (The Dictionary)
+The AI doesn't know what an "apple" is. It only knows numbers. The Token Embedding is basically a giant dictionary. When you feed it a word, it looks up a unique string of numbers (a vector) that represents that word's "meaning."
+
+### 2. Rotary Position Embeddings (RoPE) 🧭
+If you give the AI the words "The dog bit the man" and "The man bit the dog", the words are exactly the same! The AI needs to know what *order* they are in. 
+Instead of just tagging words with a simple position number, we use something called **RoPE** (Rotary Position Embeddings). It's a clever math trick that rotates the word's meaning based on its position. This helps the AI understand sentences of any length much better than older models.
+
+### 3. Grouped-Query Attention (GQA) 👁️
+When you read a long paragraph, you pay "attention" to certain important words to understand the context. The AI does this too!
+Older AI models stored a massive, separate list of memories for every single word they read, which ate up tons of RAM. We use **Grouped-Query Attention (GQA)**. Think of it like a group of students sharing one textbook instead of everyone buying their own. It gets the same job done but uses way less memory, which means the AI generates text *much* faster.
+
+### 4. SwiGLU Feed-Forward Network ⚡
+After the AI pays "attention" to the words, it has to process what it learned. It passes the information through a Feed-Forward Network. 
+Most models use a standard math equation here, but we use **SwiGLU**. It sounds like a strange brand of glue, but it's actually just a highly optimized equation that empirically makes the AI learn faster and perform better.
+
+### 5. RMSNorm (The Stabilizer) ⚖️
+As numbers get passed through dozens of layers of math, they can get wildly huge or microscopically small. We use **RMSNorm** to quickly scale the numbers back to a normal size after every step. It's like a fast-acting volume knob that keeps the math from blowing out the speakers.
+
+### 6. The Language Model Head (The Guesser) 🎯
+Once the numbers have made it all the way through the brain, they reach the end. The Language Model Head looks at the final processed numbers and calculates the probability for *every single word in its dictionary*. It then spits out the highest-probability word as its answer!
+
+*(Fun fact: We use a trick called "Weight Tying". The giant dictionary we used in Step 1 to turn words into numbers? We just run it in reverse here to turn the final numbers back into words. Re-using it saves us millions of parameters!)*
+
+---
+
+## The Secret Sauce: Why Is It So Fast?
+
+If you try to run standard AI models on a regular computer, they usually crash. Here's a summary of the modern shortcuts we took to make Fragment LLM run smoothly:
+
+1. **RMSNorm**: A stripped-down, faster version of the stabilizer older AIs use.
+2. **RoPE**: Better handling of long sentences without needing extra memory.
+3. **GQA (Grouped Query Attention)**: Shares memory across the attention heads so generating text doesn't fill up your RAM.
+4. **Flash Attention**: A highly optimized chunk of code (written by NVIDIA/PyTorch) that calculates attention incredibly fast on your GPU.
+5. **SwiGLU**: A slightly more complex equation that results in a noticeably smarter AI.
+6. **Gradient Checkpointing**: A trick used during training. Instead of memorizing all the intermediate math steps (which takes tons of RAM), it throws them away and just quickly recalculates them when needed.
+
+---
+
+**Where to next?**  
+Ready to actually train this brain? Head over to the [Training Guide](training.md)!

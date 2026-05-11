@@ -1,0 +1,62 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fragment_LLM — CLI training stack
+#
+# Prerequisites on the HOST machine (run once, then reboot):
+#   Ubuntu/Debian:
+#     distribution=$(. /etc/os-release; echo $ID$VERSION_ID)
+#     curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add -
+#     curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list \
+#         | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+#     sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+#     sudo nvidia-ctk runtime configure --runtime=docker
+#     sudo systemctl restart docker
+#
+# Verify GPU is visible inside Docker BEFORE training:
+#   docker compose run --rm trainer python -c "import torch; print(torch.cuda.get_device_name(0))"
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-base: &base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  volumes:
+    # All persistent data lives on the host — safe across container rebuilds.
+    # Run dataset_loader.py on your host first, then data/raw/ is ready here.
+    - .:/app
+    # (The data, checkpoints, and models folders are naturally included inside /app)
+  environment:
+    - TOKENIZERS_PARALLELISM=false
+  tty: true
+  stdin_open: true
+  runtime: nvidia
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+
+  # ── trainer ─────────────────────────────────────────────────────────────
+  # Usage:
+  #   docker compose run --rm trainer python scripts/preprocessor.py
+  #   docker compose run --rm trainer python train.py --preset small --epochs 5
+  #   docker compose run --rm trainer python train.py --preset 7b
+  #   docker compose run --rm trainer python train.py --preset 7b --resume checkpoints/ckpt_epoch001.pt
+  #   docker compose run --rm trainer bash
+  trainer:
+    <<: *base
+    command: bash
+
+  # ── inference ───────────────────────────────────────────────────────────
+  # Usage:
+  #   docker compose run --rm inference python src/inference.py --interactive
+  #   docker compose run --rm inference python src/inference.py \
+  #       --prompt "Once upon a time" --max-new-tokens 200 --temperature 0.8
+  inference:
+    <<: *base
+    command: bash

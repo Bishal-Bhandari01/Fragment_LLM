@@ -1,171 +1,109 @@
-# Quick Start Guide
+# Quick Start Guide 🚀
 
-Get up and running with Fragment_LLM in minutes.
+Ready to build your own AI? You're in the right place. This guide will walk you through getting Fragment LLM up and running on your computer in just a few minutes. 
 
-## Prerequisites
+No supercomputers needed!
 
-- Python 3.8 or higher
-- 4GB+ RAM (8GB+ recommended)
-- CUDA-capable GPU (optional but recommended)
+## What You Need Before We Start
 
-## Installation
+- **Python 3.8 or higher**: (The language the AI is written in).
+- **At least 4GB of RAM**: (Though 8GB+ is highly recommended so things run smoothly).
+- **A graphics card (GPU)**: Completely optional, but if you have an Nvidia GPU, things will train *much* faster.
 
-### 1. Clone the Repository
+---
+
+## Step 1: Getting the Code
+
+First, you'll need to grab the code from our repository and jump into the folder. Open your terminal (or Command Prompt) and run:
 
 ```bash
 git clone <your-repo-url>
 cd Fragment_LLM
 ```
 
-### 2. Install Dependencies
+## Step 2: Install the Tools
+
+Our AI relies on a few helper libraries (like PyTorch). We can install all of them at once using:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Or install manually:
+*(Optional: If you want nice graphs to track how smart your AI is getting, you can also install Weights & Biases by running `pip install wandb>=0.15.0`)*
 
-```bash
-pip install torch>=2.0.0 pandas>=1.5.0 tqdm>=4.65.0
-```
+---
 
-Optional (for experiment tracking):
-```bash
-pip install wandb>=0.15.0
-```
+## Your First Training Run! 🎓
 
-## First Training Run
+Training an AI is like teaching a toddler to speak by reading them millions of books. We just need to give it the books!
 
-### Step 1: Prepare Data
+### 1. Prepare Your Data
 
-Create the data directories:
+Create some folders to hold your text files:
 
 ```bash
 mkdir -p data/raw data/processed
 ```
 
-Download sample data (WikiText-2) or use your own text files:
+Now, drop any text you want the AI to learn from into the `data/raw/` folder. It can be a `.txt` file containing Shakespeare, Wikipedia articles, or your own journal entries!
 
-```bash
-# Place your .txt or .parquet files in data/raw/
-# Example: data/raw/train.txt, data/raw/val.txt
-```
+### 2. Clean Up the Data
 
-### Step 2: Preprocess Data
+The AI likes its reading material clean and organized. We wrote a handy script that checks your files and organizes them for the AI:
 
 ```bash
 python scripts/preprocessor.py
 ```
 
-This will:
-- Validate and clean your text data
-- Create train/validation/test splits
-- Save processed files to `data/processed/`
+This script will read your raw text and neatly save it into the `data/processed/` folder.
 
-**Expected output:**
-```
-Preprocessor initialized
-Processing train split...
-Saved train.txt: 1000 lines, 0.5 MB
-Processing validation split...
-Saved val.txt: 100 lines, 0.05 MB
-Preprocessing complete!
-```
+### 3. Start Training
 
-### Step 3: Train Your First Model
+This is the fun part! Let's teach the AI.
 
-For a quick test run (low-end PC friendly):
-
+**If you are on a basic laptop:** Use our 'tiny' preset. It's perfectly sized for standard computers.
 ```bash
-python train.py --epochs 5 --batch-size 8
+python train.py --preset tiny --epochs 5 --batch-size 8
 ```
 
-For better results (if you have more resources):
-
+**If you have a beefy gaming PC or a good GPU:** Let's crank it up and use the 'small' preset!
 ```bash
-python train.py --epochs 10 --batch-size 16 --n-layer 6 --n-embd 384
+python train.py --preset small --epochs 10 --batch-size 16
 ```
 
-**Expected output:**
-```
-Starting training pipeline...
-Device: cuda
-Vocab size: 5000
-Model has 38,000,000 parameters
-Starting training...
+Sit back and grab a coffee ☕. You'll see a progress bar showing you the AI's "Loss" going down over time. (Lower loss means it's making fewer mistakes and getting smarter!)
 
-Epoch 1/10
-Training: 100%|████████| 50/50 [00:30<00:00]
-Train loss: 4.5234
-Val loss: 4.3210
-```
+### 4. Talk to Your AI 💬
 
-### Step 4: Generate Text
-
-Interactive mode (recommended for beginners):
+Once training finishes, it's time to see what your AI learned! We've included an interactive chat mode so you can type prompts directly to it.
 
 ```bash
 python src/inference.py --interactive
 ```
 
-Then type your prompts:
-```
-Prompt: Once upon a time
-Generated: Once upon a time, there was a small village...
-```
-
-Single generation:
-
-```bash
-python src/inference.py --prompt "The future of AI" --max-new-tokens 100
-```
-
-## Common Issues
-
-### Issue: "Python was not found"
-**Solution**: Install Python 3.8+ and add it to your PATH
-
-### Issue: "CUDA out of memory"
-**Solution**: Reduce batch size or model size:
-```bash
-python train.py --batch-size 4 --n-layer 4 --n-embd 256
-```
-
-### Issue: "File not found: tokenizer.json"
-**Solution**: The tokenizer is created during first training. Make sure you've run training at least once.
-
-### Issue: "Dataset file is empty"
-**Solution**: Check that your data files in `data/raw/` contain text
-
-## Next Steps
-
-- [Training Guide](training.md) - Learn advanced training techniques
-- [Model Architecture](model.md) - Understand the model structure
-- [Configuration](configuration.md) - Customize your setup
-- [Inference Guide](inference.md) - Advanced text generation
-
-## Quick Reference
-
-### Minimal Training Command
-```bash
-python train.py
-```
-
-### Recommended Training Command
-```bash
-python train.py --epochs 10 --batch-size 16 --use-amp
-```
-
-### Generate Text
-```bash
-python src/inference.py --interactive
-```
-
-### Monitor Training
-```bash
-python train.py --use-wandb  # Requires wandb account
-```
+Type something like "Once upon a time", hit enter, and watch your brand-new AI finish the sentence for you!
 
 ---
 
-**Need help?** Check the [main README](../README.md) or open an issue.
+## Uh Oh! (Common Troubleshooting)
+
+Hitting a roadblock? Don't worry, it happens to the best of us.
+
+- **"Python was not found"**  
+  *Fix:* Make sure Python 3.8+ is installed and checked to "Add to PATH" in the installer.
+  
+- **"CUDA out of memory"**  
+  *Fix:* Your graphics card is overwhelmed. Try running a smaller batch size: `python train.py --preset tiny --batch-size 4`
+
+- **"File not found: tokenizer.json"**  
+  *Fix:* This file gets created automatically the very first time you train the AI. Just make sure you run the training step!
+
+- **"Dataset file is empty"**  
+  *Fix:* Double-check that the text files you dropped in `data/raw/` actually have words in them!
+
+## What's Next?
+
+Feeling adventurous? Check out the rest of the guides to level up:
+- 🎓 [Learn advanced training tricks](training.md)
+- 🧠 [See how the AI's "brain" works](model.md)
+- ⚙️ [Tweak the settings to make it your own](configuration.md)

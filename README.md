@@ -1,94 +1,67 @@
-# Secure LLM from Scratch
+# Fragment LLM: Your Secure AI Built from Scratch 🚀
 
-A production-ready, security-hardened GPT-style language model implementation optimized for low-end PCs and fast learning.
+Welcome to Fragment LLM! We built this project to be a production-ready, highly secure AI language model that you can actually run and train on an everyday computer—no massive server farm required.
 
-## � Documentation
+Whether you're a student learning how AI works, a researcher, or just someone curious about training your own mini-ChatGPT, this project makes it easy, safe, and surprisingly fast.
 
-The documentation is split into specialized guides:
+## 📚 Where to Start?
 
-- **🔰 [Quick Start](docs/quickstart.md)** - Get up and running in minutes
-- **🏗️ [Architecture](docs/architecture.md)** - System design and component overview
-- **🧠 [Model Architecture](docs/model.md)** - Details on the GPT implementation
-- **🎓 [Training Guide](docs/training.md)** - How to train models effectively
-- **🔡 [Tokenizer](docs/tokenizer.md)** - BPE tokenizer details
-- **💾 [Dataset Handling](docs/dataset.md)** - Secure data loading
-- **🧹 [Preprocessing](docs/preprocessing.md)** - Data preparation pipeline
-- **💬 [Inference](docs/inference.md)** - Text generation parameters and guide
-- **⚙️ [Configuration](docs/configuration.md)** - Full parameter reference
-- **�🔒 [Security](docs/security.md)** - Detailed security features and rules
-- **📖 [API Reference](docs/api-reference.md)** - Class and function documentation
+We've broken our documentation down into easy-to-read guides. Don't worry if some of the terms sound complex; we've tried our best to explain things simply!
 
-## 🔒 Security Features
+- **🔰 [Quick Start](docs/quickstart.md)** - The fastest way to get things running (Start here!)
+- **🏗️ [How It Works](docs/architecture.md)** - A bird's-eye view of how all the pieces fit together.
+- **🧠 [Inside the AI](docs/model.md)** - The actual brain of the AI and how it thinks.
+- **🎓 [Training Guide](docs/training.md)** - How to teach your AI new things.
+- **🔡 [Tokenizer](docs/tokenizer.md)** - How the AI learns to read text.
+- **💾 [Data Handling](docs/dataset.md)** - How we feed data to the AI safely.
+- **🧹 [Prep Work](docs/preprocessing.md)** - Getting your messy text files ready for the AI.
+- **💬 [Chatting](docs/inference.md)** - How to talk to your AI once it's trained.
+- **⚙️ [Settings](docs/configuration.md)** - All the dials and knobs you can turn.
+- **🔒 [Security](docs/security.md)** - How we keep this safe for you to use.
+- **📖 [Code Reference](docs/api-reference.md)** - For the developers who want to dig into the code.
 
-- **OWASP ASVS 4.0 Compliant**: Input validation, secure deserialization, path traversal prevention
-- **CWE Top 25 Mitigations**: Protection against critical vulnerabilities
-- **CIS Benchmark Aligned**: Follows security best practices
-- **No Pickle Usage**: JSON-based serialization to prevent arbitrary code execution
-- **Resource Limits**: Protection against DoS and resource exhaustion
-- **Atomic Operations**: Safe checkpoint saving and loading
+## 🔒 Safety First
 
-## 🚀 Optimizations for Low-End PCs
+Running AI code on your computer shouldn't be risky. We take security very seriously. 
+- We follow industry-standard security guidelines (like OWASP and CIS) to make sure malicious files can't trick the system.
+- We never use unsafe "Pickle" files (a common way viruses sneak into AI models). Everything is saved safely as standard text/JSON.
+- The system automatically limits how much memory it uses so it doesn't crash your computer.
 
-- **Reduced Model Size**: 6 layers, 384 embedding dimension (38M parameters)
-- **Gradient Accumulation**: Effective batch size 64 with actual batch 16
-- **Mixed Precision Training**: FP16 to reduce memory usage by 50%
-- **Efficient Architecture**: Combined QKV projections, optimized attention
-- **Memory-Efficient Data Loading**: Streaming without loading full dataset
+## 🚀 Built for Regular Computers
 
-## 🎯 Quick Start Summary
+You shouldn't need a $10,000 graphics card to play with AI. Here’s how we made it work for regular PCs:
+- **Choose Your Size**: We have preset sizes ranging from "tiny" (which runs on almost anything) up to larger models.
+- **Smart Memory**: We use tricks like "Mixed Precision" and "Gradient Checkpointing" which sound fancy, but basically mean the AI uses about half the memory it normally would.
+- **Fast Architecture**: We use modern AI shortcuts (like RoPE and Flash Attention) to make the AI learn faster without working your computer to the bone.
+- **Streaming Data**: Even if you have gigabytes of text, we stream it to the AI in bite-sized pieces so your RAM never fills up.
 
-For detailed instructions, see the [Quick Start Guide](docs/quickstart.md).
+## 🎯 Try It Out!
+
+Want to get it running right now? It's just a few simple commands. (Check out the [Quick Start Guide](docs/quickstart.md) for more details!)
 
 ```bash
-# 1. Install
+# 1. Install the required tools
 pip install torch pandas tqdm
 
-# 2. Prepare Data
+# 2. Get your data ready
 python scripts/preprocessor.py
 
-# 3. Train
-python train.py --epochs 10
+# 3. Teach the AI! (We're using the 'small' preset here)
+python train.py --preset small --epochs 10
 
-# 4. Generate
+# 4. Chat with your new AI
 python src/inference.py --interactive
 ```
 
-## 📂 Project Structure
+## 🤝 Want to Help?
 
-```
-Fragment_LLM/
-├── src/                    # Source code
-│   ├── config.py           # Configuration
-│   ├── tokenizer.py        # Tokenizer
-│   ├── dataset.py          # Data handling
-│   ├── model.py            # Neural network
-│   ├── trainer.py          # Training loop
-│   └── inference.py        # Generation
-├── scripts/                # Helper scripts
-│   └── preprocessor.py     # Data prep
-├── docs/                   # Documentation
-│   ├── quickstart.md       # Getting started
-│   ├── architecture.md     # System design
-│   └── ...                 # Feature docs
-├── train.py                # Main entry point
-├── SECURITY_RULES.md       # Security guidelines
-└── README.md               # This file
-```
-
-## 🤝 Contributing
-
-See [Security documentation](docs/security.md) before contributing. Ensure all security rules are followed:
-1. Input validation for all public methods
-2. No unsafe deserialization (pickle)
-3. Path checks for file operations
-4. Resource limits enforcement
+We'd love your help! If you want to contribute code, please take a quick look at our [Security Guide](docs/security.md) first. We just want to make sure any new code is as safe as the rest of the project.
 
 ## 📄 License
 
-MIT License - See LICENSE file for details
+This project is completely free and open source under the MIT License. (See the LICENSE file for the boring legal details).
 
-## 🌟 Acknowledgments
+## 🌟 A Big Thanks To...
 
-- Based on GPT architecture from "Attention is All You Need"
-- Optimized for educational and research purposes
-- Security hardened following OWASP, CWE, and CIS guidelines
+- The original "Attention is All You Need" paper that made this whole AI wave possible.
+- The open-source community for teaching us how to build these amazing tools.

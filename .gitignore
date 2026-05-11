@@ -189,3 +189,7 @@ data/processed/*
 data/raw/*
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+models/*.pt
+checkpoints/*.pt
+tokenizer.json

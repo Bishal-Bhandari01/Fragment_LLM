@@ -1,351 +1,121 @@
-# Training Guide
+# Training Your AI 🎓
 
-Complete guide to training Fragment_LLM models.
+Teaching an AI to speak is a lot like teaching a toddler. You need to give it plenty of reading material, correct its mistakes, and give it time to learn. This guide walks you through the process of training your Fragment LLM model.
 
-## Training Pipeline Overview
+## The Big Picture
 
-```
-Data Preparation → Tokenizer Training → Model Training → Checkpointing → Evaluation
-```
+Here is the journey your data takes to become a fully trained AI:
 
-## Quick Start
+1. **Prep the Data**: Clean up your text files so they are easy to read.
+2. **Teach the Alphabet**: Train the Tokenizer so the AI knows how to turn your words into numbers.
+3. **Hit the Books**: Feed the numbers to the AI and let it practice guessing the next word.
+4. **Save Progress**: Periodically save the AI's "brain" so you don't lose your work if your computer crashes.
 
-Basic training command:
-```bash
-python train.py --epochs 10
-```
+## Let's Get Started!
 
-## Training Script
-
-**Location**: `train.py`
-
-The training script handles:
-- Data loading and validation
-- Tokenizer training/loading
-- Model initialization
-- Training loop with gradient accumulation
-- Validation
-- Checkpoint saving
-
-## Configuration Options
-
-### Model Architecture
+If you just want to get up and running immediately, this is the magic command:
 
 ```bash
---vocab-size 10000        # Vocabulary size [256-100000]
---block-size 512          # Context length [128-2048]
---n-layer 6               # Number of transformer layers [1-48]
---n-head 6                # Number of attention heads [1-32]
---n-embd 384              # Embedding dimension [64-2048]
---dropout 0.1             # Dropout rate [0.0-0.9]
+# This trains a 'small' model for 10 full passes (epochs) over your data
+python train.py --preset small --epochs 10
 ```
 
-### Training Hyperparameters
+## How Big Should My AI Be? (Hardware Presets)
 
+We have pre-configured "presets" depending on how powerful your computer is. You don't need to be an AI engineer to figure out the settings!
+
+### 💻 The "Tiny" Preset (Old Laptops / No Graphics Card)
+Got an older computer with 4-8GB of RAM? No problem. The `tiny` preset is designed to run on almost anything. It won't be writing Shakespeare, but it will learn!
 ```bash
---batch-size 16           # Batch size [1-256]
---grad-accum-steps 4      # Gradient accumulation steps
---learning-rate 3e-4      # Learning rate (0-1e-2]
---epochs 10               # Number of epochs
---max-iters 10000         # Maximum iterations
+python train.py --preset tiny --batch-size 4 --epochs 5
 ```
+*(Expect this to take about 30 minutes per pass on a standard CPU).*
 
-### System Options
-
+### 🎮 The "Small" Preset (Gaming PCs / 8-16GB RAM)
+If you have a decent graphics card (like a GTX 1660), use the default `small` preset.
 ```bash
---use-amp                 # Enable mixed precision (default: True)
---no-amp                  # Disable mixed precision
---retrain-tokenizer       # Force tokenizer retraining
---use-wandb               # Enable W&B logging
+python train.py --preset small --epochs 10 --use-amp
 ```
+*(Expect this to take about 3-5 minutes per pass).*
 
-## Hardware-Specific Configurations
-
-### Low-End PC (4-8GB RAM, No GPU)
-
+### 🚀 The "Medium" Preset (High-End PCs / RTX 3060+)
+If you have a beefy PC, let's turn the dials up. This model is much smarter.
 ```bash
-python train.py \
-    --batch-size 4 \
-    --grad-accum-steps 16 \
-    --n-layer 4 \
-    --n-head 4 \
-    --n-embd 256 \
-    --block-size 256 \
-    --epochs 5
+python train.py --preset medium --epochs 20 --use-amp --use-bf16 --grad-ckpt
 ```
 
-**Expected**: ~30 min/epoch on CPU
+---
 
-### Mid-Range PC (8-16GB RAM, GTX 1660)
+## Cheat Sheet: Advanced Tweaks 🎛️
 
-```bash
-python train.py \
-    --batch-size 16 \
-    --grad-accum-steps 4 \
-    --n-layer 6 \
-    --n-head 6 \
-    --n-embd 384 \
-    --block-size 512 \
-    --epochs 10 \
-    --use-amp
-```
+Want to customize things? You can add any of these flags to the `train.py` command to change how the AI learns.
 
-**Expected**: ~3-5 min/epoch on GPU
+**How it Learns:**
+- `--epochs 10` : How many times the AI reads your entire dataset from start to finish.
+- `--batch-size 16` : How many sentences the AI tries to read at once before checking its answers. (If you get "Out of Memory" errors, lower this number!)
+- `--learning-rate 3e-4` : How big of a jump the AI makes when it realizes it made a mistake. If it's too high, the AI forgets things. If it's too low, it takes forever to learn.
 
-### High-End PC (16GB+ RAM, RTX 3060+)
+**Memory Savers:**
+- `--use-amp` or `--use-bf16` : Does the math using half the decimal points. Cuts memory usage in half!
+- `--grad-ckpt` : Gradient Checkpointing. Saves a ton of memory by re-doing some math on the fly instead of memorizing it.
+- `--streaming` : Don't load the text file into RAM. Stream it directly from the hard drive!
 
-```bash
-python train.py \
-    --batch-size 32 \
-    --grad-accum-steps 2 \
-    --n-layer 12 \
-    --n-head 12 \
-    --n-embd 768 \
-    --block-size 1024 \
-    --epochs 20 \
-    --use-amp \
-    --use-wandb
-```
+---
 
-**Expected**: ~2-3 min/epoch on GPU
+## Keeping an Eye on Things 📈
 
-## Training Process
-
-### 1. Tokenizer Training
-
-If `tokenizer.json` doesn't exist:
-```python
-tokenizer = SimpleTokenizer(max_vocab_size=args.vocab_size)
-tokenizer.train(text, vocab_size=args.vocab_size)
-tokenizer.save('tokenizer.json')
-```
-
-### 2. Data Loading
-
-```python
-train_loader = create_dataloader(
-    'data/processed/train_tiny.txt',
-    tokenizer,
-    batch_size=config.batch_size,
-    block_size=config.block_size
-)
-```
-
-### 3. Model Initialization
-
-```python
-model = AIModel(config)
-# Weight initialization follows GPT-2 conventions
-```
-
-### 4. Training Loop
-
-```python
-for epoch in range(epochs):
-    # Training
-    for batch in train_loader:
-        # Forward pass with mixed precision
-        with torch.cuda.amp.autocast():
-            logits, loss = model(x, y)
-        
-        # Backward pass
-        scaler.scale(loss).backward()
-        
-        # Gradient clipping
-        scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        
-        # Optimizer step
-        scaler.step(optimizer)
-        scaler.update()
-    
-    # Validation
-    val_loss = validate()
-    
-    # Checkpoint saving
-    if (epoch + 1) % 5 == 0:
-        save_checkpoint(f"checkpoint_epoch_{epoch+1}.pt")
-```
-
-## Optimization Techniques
-
-### 1. Gradient Accumulation
-
-Simulates larger batch sizes:
-```python
-effective_batch_size = batch_size × grad_accum_steps
-# Example: 16 × 4 = 64
-```
-
-**Benefits**:
-- Train with larger effective batch sizes
-- Reduces memory usage
-- Improves convergence
-
-### 2. Mixed Precision Training
-
-Uses FP16 for forward/backward passes:
-```python
-with torch.cuda.amp.autocast():
-    logits, loss = model(x, y)
-```
-
-**Benefits**:
-- 50% memory reduction
-- 2-3x faster training
-- Minimal accuracy loss
-
-### 3. Gradient Clipping
-
-Prevents exploding gradients:
-```python
-torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-```
-
-### 4. Learning Rate Scheduling
-
-Cosine annealing:
-```python
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-    optimizer, T_max=max_iters
-)
-```
-
-## Monitoring Training
-
-### Console Output
+As your AI trains, it will print out its progress. You are looking for the **Loss** to go down. "Loss" is basically the AI's error rate.
 
 ```
 Epoch 1/10
 Training: 100%|████████| 50/50 [00:30<00:00]
 Train loss: 4.5234
 Val loss: 4.3210
-
-Epoch 2/10
-Training: 100%|████████| 50/50 [00:28<00:00]
-Train loss: 3.8123
-Val loss: 3.7456
 ```
+- **Train Loss**: How well it is doing on the text it's currently reading.
+- **Val Loss**: How well it is doing on a "pop quiz" of text it hasn't seen before. (If Train Loss goes down but Val Loss goes up, the AI is just memorizing the book instead of actually learning to speak!)
 
-### W&B Integration
-
-Enable with `--use-wandb`:
+### Want Beautiful Graphs?
+If you want to track your AI's brain waves in real-time, you can use a free service called Weights & Biases:
 ```bash
 python train.py --use-wandb
 ```
 
-Tracks:
-- Training loss
-- Validation loss
-- Learning rate
-- Gradient norms
+---
 
-## Checkpointing
+## Saving Your Work (Checkpoints) 💾
 
-### Automatic Checkpoints
+Every 5 epochs, the system automatically saves a copy of the AI's brain into the `checkpoints/` folder. We call these "checkpoints."
 
-Saved every 5 epochs to `checkpoints/`:
+If your power goes out, you can pick right back up where you left off!
+```bash
+python train.py --preset small --resume checkpoints/checkpoint_epoch_5.pt
 ```
-checkpoints/
-├── checkpoint_epoch_5.pt
-├── checkpoint_epoch_10.pt
-└── checkpoint_epoch_15.pt
-```
-
-### Final Model
-
-Saved to `models/final_model.pt`
-
-### Checkpoint Contents
-
-```python
-checkpoint = {
-    'model_state_dict': model.state_dict(),
-    'optimizer_state_dict': optimizer.state_dict(),
-    'scheduler_state_dict': scheduler.state_dict(),
-    'config': config
-}
-```
-
-## Troubleshooting
-
-### Out of Memory
-
-**Symptoms**: CUDA out of memory error
-
-**Solutions**:
-1. Reduce batch size: `--batch-size 8`
-2. Reduce model size: `--n-layer 4 --n-embd 256`
-3. Reduce context: `--block-size 256`
-4. Increase gradient accumulation: `--grad-accum-steps 8`
-
-### Slow Training
-
-**Symptoms**: Very slow iterations
-
-**Solutions**:
-1. Enable mixed precision: `--use-amp`
-2. Reduce data loading workers
-3. Use GPU if available
-4. Reduce model size
-
-### Loss Not Decreasing
-
-**Symptoms**: Loss stays constant or increases
-
-**Solutions**:
-1. Check data quality
-2. Reduce learning rate: `--learning-rate 1e-4`
-3. Increase model capacity
-4. Train longer
-
-### NaN Loss
-
-**Symptoms**: Loss becomes NaN
-
-**Solutions**:
-1. Reduce learning rate
-2. Enable gradient clipping (already enabled)
-3. Check for data issues
-4. Use mixed precision carefully
-
-## Best Practices
-
-1. **Start Small**: Begin with a small model to verify pipeline
-2. **Monitor Validation**: Watch for overfitting
-3. **Save Checkpoints**: Don't lose progress
-4. **Use Mixed Precision**: Faster and more memory efficient
-5. **Gradient Accumulation**: Simulate larger batches
-6. **Learning Rate**: Start with 3e-4, adjust as needed
-
-## Advanced Topics
-
-### Custom Training Loop
-
-See `src/trainer.py` for implementation details.
-
-### Resume Training
-
-```python
-# Load checkpoint
-checkpoint = torch.load('checkpoint_epoch_10.pt')
-model.load_state_dict(checkpoint['model_state_dict'])
-optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-```
-
-### Multi-GPU Training
-
-Not currently implemented, but can be added with:
-```python
-model = nn.DataParallel(model)
-```
-
-## Related Documentation
-
-- [Model Architecture](model.md)
-- [Configuration](configuration.md)
-- [Dataset](dataset.md)
+When training completely finishes, your shiny new AI will be saved as `models/final_model.pt`.
 
 ---
 
-**Next**: Learn about [text generation](inference.md)
+## Troubleshooting Guide 🚑
+
+- **"CUDA out of memory"**
+  Your graphics card bit off more than it could chew. Try lowering the `--batch-size` (e.g., to 4 or 8) or turn on `--grad-ckpt`.
+
+- **"My computer is freezing up!"**
+  Your text file might be too big for your RAM. Try adding `--streaming` to your command.
+
+- **"The Loss isn't going down at all."**
+  Double-check your text files. If they are filled with gibberish, the AI won't know what to learn!
+
+- **"Training is taking days..."**
+  If you don't have a graphics card (GPU), training AI is very slow. Make sure you are using the `--preset tiny` flag.
+
+## Going Pro (Multi-GPU)
+
+If you happen to have a server with multiple graphics cards, you can train *way* faster by splitting the work across all of them using PyTorch's `torchrun`:
+```bash
+torchrun --standalone --nproc_per_node=4 train.py --preset 7b
+```
+
+---
+**What's next?**  
+Once your AI is trained, it's time to talk to it! Check out the [Chatting (Inference) Guide](inference.md).

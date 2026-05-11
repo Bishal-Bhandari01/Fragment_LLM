@@ -1,264 +1,90 @@
-# Dataset Documentation
+# How We Handle Your Data 💾
 
-Secure text dataset implementation with path validation and memory efficiency.
+Before an AI can learn to speak, it needs something to read! This page explains how we load your text files and feed them to the AI safely and efficiently.
 
-## Overview
+## The Basics
 
-**Location**: `src/dataset.py`
+Behind the scenes, we use a class called `TextDataset`. Think of it as a super-librarian that:
+- Checks if the book (your file) is safe to open.
+- Makes sure the book isn't so huge that it crushes the library (your computer's RAM).
+- Translates the English words into numbers (tokens) that the AI understands.
 
-The `TextDataset` class provides:
-- Secure file loading with path validation
-- Memory-efficient data handling
-- Automatic tokenization
-- Input validation
+## Quick Example
 
-## Quick Start
+If you want to poke around in Python, here's how easy it is to load your data:
 
 ```python
-from src.dataset import TextDataset, create_dataloader
+from src.dataset import create_dataloader
 from src.tokenizer import SimpleTokenizer
 
-# Load tokenizer
+# 1. Load our dictionary (Tokenizer)
 tokenizer = SimpleTokenizer.load('tokenizer.json')
 
-# Create dataset
-dataset = TextDataset(
-    text_file='data/processed/train.txt',
-    tokenizer=tokenizer,
-    block_size=512
-)
-
-# Create dataloader
+# 2. Tell the librarian to grab our training text
 dataloader = create_dataloader(
     'data/processed/train.txt',
     tokenizer,
-    batch_size=16,
-    block_size=512
+    batch_size=16, # How many sentences to read at once
+    block_size=512 # How long each sentence can be
 )
 ```
 
-## TextDataset Class
+## How It Actually Works
 
-### Initialization
+When you give us a text file, here's exactly what happens:
 
-```python
-dataset = TextDataset(
-    text_file='data/processed/train.txt',
-    tokenizer=tokenizer,
-    block_size=512,
-    max_file_size_mb=500,
-    allowed_base_dirs=('data/',)
-)
-```
+1. **Security Check**: We make sure nobody is trying to trick the system by passing a weird file path (like `../../../passwords.txt`).
+2. **Size Check**: We check the file size. If it's a 50-gigabyte file and you only have 8 gigabytes of RAM, we stop before your computer freezes!
+3. **Reading**: We read the text.
+4. **Translation**: We use our Tokenizer to turn the words into numbers.
+5. **Chopping**: We chop the long list of numbers into bite-sized sequences the AI can digest.
 
-**Parameters**:
-- `text_file`: Path to text file
-- `tokenizer`: Trained tokenizer instance
-- `block_size`: Sequence length [1-2048]
-- `max_file_size_mb`: Max file size (DoS prevention)
-- `allowed_base_dirs`: Allowed directory prefixes
+### What Does the AI Actually See?
 
-### How It Works
+Imagine your text file says: `"Hello world! This is a test."`
 
-1. **Path Validation**: Checks file path for security
-2. **File Size Check**: Prevents loading huge files
-3. **Text Loading**: Reads file content
-4. **Tokenization**: Converts text to token IDs
-5. **Sequence Creation**: Creates overlapping sequences
+The AI doesn't see those words. Instead, it sees a list of ID numbers:
+`[245, 128, 67, 89, 12, 45, ...]`
 
-### Data Format
+We feed these numbers to the AI in pairs. We give it an "input" sequence, and the "target" is just the same sequence shifted over by one word. (We are basically asking the AI: "Given these words, what is the very next word?")
 
-```python
-# Input text file
-"Hello world! This is a test."
+## How We Stop Your Computer From Crashing
 
-# After tokenization
-tokens = [245, 128, 67, 89, 12, 45, ...]
+Loading text can be surprisingly heavy on your computer. Here are three ways we fix that:
 
-# Dataset returns (input, target) pairs
-dataset[0] = (
-    [245, 128, 67, 89],  # input
-    [128, 67, 89, 12]    # target (shifted by 1)
-)
-```
+### 1. In-Memory Mode (The Fast Way)
+If your text file isn't too big, we just load the whole thing into memory. It's lightning-fast, but it uses the most RAM.
 
-## Security Features
+### 2. Streaming Mode (The Smart Way)
+If you have a massive dataset, you can turn on Streaming Mode by adding `--streaming` when you train:
 
-### Path Validation
-
-Prevents directory traversal attacks (CWE-22):
-
-```python
-# ✅ Safe paths
-'data/processed/train.txt'
-'./data/train.txt'
-
-# ❌ Blocked paths
-'../../../etc/passwd'
-'/etc/passwd'
-'data/../../../secrets.txt'
-```
-
-### File Size Limits
-
-Prevents resource exhaustion (CWE-400):
-
-```python
-max_file_size_mb = 500  # Default limit
-
-# Files larger than 500MB are rejected
-if file_size_mb > max_file_size_mb:
-    raise ValueError(f"File size ({file_size_mb:.1f}MB) exceeds limit")
-```
-
-### Input Validation
-
-All parameters are validated:
-
-```python
-# Block size validation
-if not 1 <= block_size <= 2048:
-    raise ValueError(f"block_size must be in [1, 2048]")
-
-# File existence check
-if not path.exists():
-    raise FileNotFoundError(f"File not found: {filepath}")
-```
-
-## DataLoader Creation
-
-### Basic Usage
-
-```python
-dataloader = create_dataloader(
-    file_path='data/processed/train.txt',
-    tokenizer=tokenizer,
-    batch_size=16,
-    block_size=512
-)
-```
-
-### Advanced Options
-
-```python
-dataloader = create_dataloader(
-    file_path='data/processed/train.txt',
-    tokenizer=tokenizer,
-    batch_size=32,
-    block_size=1024,
-    num_workers=0,  # 0 for low-end PCs
-    max_file_size_mb=1000,
-    allowed_base_dirs=('data/', 'custom_data/')
-)
-```
-
-**Parameters**:
-- `num_workers`: Data loading workers (0 for single-threaded)
-- `shuffle`: Shuffle data (default: True)
-- `drop_last`: Drop incomplete batches (default: True)
-- `pin_memory`: Pin memory for GPU (auto-detected)
-
-## Memory Efficiency
-
-### Streaming vs Loading
-
-The dataset loads the entire file into memory after tokenization, but uses efficient storage:
-
-```python
-# Text file: 10MB
-# Tokenized: ~1.5M tokens × 4 bytes = 6MB
-# Much smaller than raw text!
-```
-
-### For Very Large Datasets
-
-If your dataset is too large for memory, consider:
-
-1. **Split into chunks**:
 ```bash
-split -l 100000 large_file.txt chunk_
+python train.py --streaming
 ```
 
-2. **Train on chunks sequentially**:
-```python
-for chunk in ['chunk_aa', 'chunk_ab', ...]:
-    dataloader = create_dataloader(chunk, ...)
-    train_one_epoch(dataloader)
-```
+Instead of loading the whole book at once, the librarian just keeps their finger on the page and reads it to the AI chunk-by-chunk. This uses almost *zero* RAM!
 
-## Supported File Formats
+### 3. Memory-Mapped Mode (The Heavy-Duty Way)
+For gigantic, pre-processed datasets, we use memory mapping. It's a fancy way of pretending a file on your hard drive is actually in your RAM.
 
-### Text Files (.txt)
+## Security First 🔒
 
-```
-Plain text, UTF-8 encoded
-One document or continuous text
-```
+We are very strict about what files can be loaded. 
 
-### Parquet Files (.parquet)
+- **No Sneaky Paths**: We block directory traversal attacks (CWE-22). If someone tries to load `/etc/passwd` or `../../../secrets.txt`, the system instantly rejects it.
+- **Size Limits**: By default, we block text files larger than 500MB to prevent your computer from running out of memory and crashing (CWE-400).
 
-Supported via preprocessing script. See [Preprocessing](preprocessing.md).
+## Troubleshooting Common Errors
 
-## Custom Datasets
+- **"File not found"**  
+  *Fix*: Double-check your spelling! Also, make sure you ran the `preprocessor.py` script first.
 
-### Extending TextDataset
+- **"Dataset too small"**  
+  *Fix*: Your text file is too short! The AI needs at least enough words to fill one `block_size`. Give it a longer text file.
 
-```python
-class CustomDataset(TextDataset):
-    def __getitem__(self, idx):
-        x, y = super().__getitem__(idx)
-        # Custom processing
-        return x, y
-```
+- **"Out of memory during data loading"**  
+  *Fix*: Your file is too big for your computer. Try using `--streaming` when you run `train.py`!
 
-### Custom Data Loading
-
-```python
-from torch.utils.data import Dataset
-
-class MyDataset(Dataset):
-    def __init__(self, data_path, tokenizer, block_size):
-        # Your implementation
-        pass
-    
-    def __len__(self):
-        return self.num_samples
-    
-    def __getitem__(self, idx):
-        # Return (input, target) tensors
-        return x, y
-```
-
-## Best Practices
-
-1. **Validate Paths**: Always use `allowed_base_dirs`
-2. **Check File Sizes**: Set appropriate `max_file_size_mb`
-3. **Use Appropriate Block Size**: Match your model's `block_size`
-4. **Monitor Memory**: Watch RAM usage during data loading
-
-## Troubleshooting
-
-### Issue: "File not found"
-
-**Solution**: Check file path and ensure preprocessing completed
-
-### Issue: "Dataset too small"
-
-**Solution**: Need at least `block_size + 1` tokens. Use more data or smaller block size.
-
-### Issue: "Out of memory during data loading"
-
-**Solution**: 
-- Reduce file size
-- Split into smaller files
-- Increase `max_file_size_mb` limit carefully
-
-## Related Documentation
-
-- [Tokenizer](tokenizer.md) - Tokenization details
-- [Training](training.md) - Using datasets in training
-- [Preprocessing](preprocessing.md) - Data preparation
-
----
-
-**Next**: Learn about [text generation](inference.md)
+## What's Next?
+- 🔡 [Learn how the AI learns to read (Tokenizer)](tokenizer.md)
+- 🧹 [Learn how we clean up the data (Preprocessing)](preprocessing.md)
